@@ -29,6 +29,8 @@ class Server:
         self.EOP = b'\xff\xaa\xff\xaa'
 
         # Inicializando atributos de apoio
+        self.timer1 = 0.0
+        self.timer2 = 0.0
         self.pkg_counter = 0
         self.eop_size = 4
         self.head_size = 10
