@@ -1,10 +1,9 @@
 import os
 import random
-from enlace import *
 import time
 import numpy as np
-from clientFunctions import *
-from tqdm import tqdm
+from functions.enlace import *
+from functions.clientFunctions import *
 
 
 #   python -m serial.tools.list_ports
@@ -24,7 +23,7 @@ VERBOSE = False
 class Mensagem():
     def __init__(self, fileName):
         self.msg_id = random.randint(0,255)
-        self.mensagem = openMsg(fileName=fileName,verbose=VERBOSE)
+        self.mensagem = openMsg(fileName=fileName, verbose=VERBOSE)
         self.payloads = construirPayloads(mensagem=self.mensagem, size=114, verbose=VERBOSE)
 
 class Client():
