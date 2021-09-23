@@ -137,9 +137,11 @@ class Server:
             self.resend_pkg_id = head[6].to_bytes(1, 'big')      # h6
             self.last_pkg_id = head[7].to_bytes(1, 'big')        # h7
 
+            # check id
+
             if self.msg_type == b'\x01':
                 self.status('got_hs')
-                self.pkg_counter = 1
+                self.pkg_counter = 0
                 self.last_pkg_id = 0
                 
             
@@ -177,8 +179,9 @@ class Server:
 
     def check_eop(self):
         try:
-            self.eop = self.com1.getData(self.eop_size)[0]
-            if self.eop == self.EOP:
+            eop = self.com1.getData(self.eop_size)[0]
+            print(f'EOP: {eop}')
+            if eop == self.EOP:
                 self.FLAGS['GOT_EOP'] = True
                 if self.pkg_counter > self.pkgs_qty:
                     self.FLAGS['END_OF_MSG'] = True
@@ -196,7 +199,7 @@ class Server:
         try:
             if self.FLAGS['PKG_ERROR']:
                 self.com1.rx.clearBuffer()
-                head = [self.msg_type_dict['error'], self.sensor_id, self.server_id, self.pkgs_qty, b'\x00', self.msg_id, int(self.last_pkg_id+1).to_bytes(1, 'big'), int(self.last_pkg_id).to_bytes(1, 'big'), b'\x00', b'\x00']
+                head = [self.msg_type_dict['error'], self.sensor_id, self.server_id, self.pkgs_qty, b'\x00', self.msg_id, int(self.last_pkg_id+1).to_bytes(1, 'big'), int(self.last_pkg_id).to_bytes(1, 'big'), b'\x00', b'\x00', self.EOP]
                 send_head = b''.join(head)
                 self.com1.sendData(send_head)
                 self.FLAGS['PKG_ERROR'] = False
@@ -204,14 +207,14 @@ class Server:
             
             elif self.FLAGS['TIMEOUT']:
                 self.com1.rx.clearBuffer()
-                head = [self.msg_type_dict['timeout'], self.sensor_id, self.server_id, self.pkgs_qty, b'\x00', self.msg_id, int(self.last_pkg_id+1).to_bytes(1, 'big'), int(self.last_pkg_id).to_bytes(1, 'big'), b'\x00', b'\x00']
+                head = [self.msg_type_dict['timeout'], self.sensor_id, self.server_id, self.pkgs_qty, b'\x00', self.msg_id, int(self.last_pkg_id+1).to_bytes(1, 'big'), int(self.last_pkg_id).to_bytes(1, 'big'), b'\x00', b'\x00', self.EOP]
                 send_head = b''.join(head)
                 self.com1.sendData(send_head)
                 self.FLAGS['TIMEOUT'] = False
 
             else:
                 if self.msg_type == b'\x01':
-                    head_response_list = [self.msg_type_dict['handshake-response'], self.sensor_id, self.server_id, self.pkgs_qty, b'\x00', self.msg_id, b'\x00', int(self.last_pkg_id).to_bytes(1, 'big'), b'\x00', b'\x00']
+                    head_response_list = [self.msg_type_dict['handshake-response'], self.sensor_id, self.server_id, self.pkgs_qty, b'\x00', self.msg_id, b'\x00', int(self.last_pkg_id).to_bytes(1, 'big'), b'\x00', b'\x00', self.EOP]
                     head_response = b''.join(head_response_list)
                     self.com1.rx.clearBuffer()
                     self.com1.sendData(head_response)
@@ -219,7 +222,7 @@ class Server:
 
                 elif self.msg_type == b'\x03':
                     self.status('got_data')
-                    dataOK_response_list = [self.msg_type_dict['data-ok'], self.sensor_id, self.server_id, self.pkgs_qty, b'\x00', self.msg_id, b'\x00', int(self.last_pkg_id).to_bytes(1, 'big'), b'\x00', b'\x00']
+                    dataOK_response_list = [self.msg_type_dict['data-ok'], self.sensor_id, self.server_id, self.pkgs_qty, b'\x00', self.msg_id, b'\x00', int(self.last_pkg_id).to_bytes(1, 'big'), b'\x00', b'\x00', self.EOP]
                     dataOK_response = b''.join(dataOK_response_list)
                     self.com1.rx.clearBuffer()
                     self.com1.sendData(dataOK_response)

@@ -42,3 +42,15 @@ class enlace(object):
     def getData(self, size):
         data = self.rx.getNData(size)
         return(data, len(data))
+
+    def getNData(self, size, start):
+        start_time = time.time()
+        while(self.getBufferLen() < size):
+            time.sleep(0.05)
+            if time.time() - start < 20:
+                runtime = time.time() - start_time
+                if runtime > 5:
+                    return 'RUNTIME'
+            else:
+                return 'TIME_OUT'
+        return(self.getBuffer(size))
