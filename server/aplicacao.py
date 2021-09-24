@@ -1,6 +1,6 @@
 from enlace import *
 import time
-import datetime
+from datetime import datetime, timezone
 
 
 class Server:
@@ -29,8 +29,8 @@ class Server:
         self.EOP = b'\xff\xaa\xff\xaa'
 
         # Inicializando atributos de apoio
-        self.timer1 = 0.0
-        self.timer2 = 0.0
+        self.timer1 = time.time()
+        self.timer2 = time.time()
         self.pkg_counter = 0
         self.eop_size = 4
         self.head_size = 10
@@ -53,7 +53,9 @@ class Server:
                       'END_OF_MSG': False,
                       'PKG_ID_1': True,
                       'PKG_ERROR': False,
-                      'TIMEOUT': False}
+                      'TIMEOUT': False,
+                      'SEND_T4': False,
+                      'HS': True}
 
         self.STATUS = {'activate_com_ok': 'Comunication activated',
                        'disable_com': 'Comunication disabled',
@@ -84,6 +86,7 @@ class Server:
         self.FLAGS['GOT_EOP'] = False
         self.FLAGS['PKG_ERROR'] = False
         self.FLAGS['TIMEOUT'] = False
+        self.FLAGS['SEND_T4'] = False
 
     def read_pkg(self):
         '''
@@ -94,30 +97,19 @@ class Server:
 
         if self.FLAGS['ENABLED']:
             self.read_head()
-            time.sleep(1)
+            if self.msg_type == b'\x01':
+                time.sleep(1)
 
-        if not self.FLAGS['PKG_ERROR']:
+        if self.FLAGS['GOT_HEAD']:
             self.read_payload()
 
         if self.FLAGS['GOT_PAYLOAD']:
             self.check_eop()
 
-        if self.FLAGS['PKG_ERROR']:
-            time.sleep(1)
-            t = time.time() - self.timer2
-            print(f'TIMER 2 = {t}')
-            if (t) > 20:
-                self.FLAGS['TIMEOUT'] = True
-                self.FLAGS['PKG_ERROR'] = False
-            else:
-                if (time.time() - self.timer1) <= 2:
-                    self.FLAGS['TIMEOUT'] = False
-                    self.FLAGS['PKG_ERROR'] = False
-        
-        if self.FLAGS['GOT_HEAD'] or self.FLAGS['TIMEOUT'] or self.FLAGS['PKG_ERROR']:
+        if self.FLAGS['GOT_HEAD'] or self.FLAGS['TIMEOUT'] or self.FLAGS['PKG_ERROR'] or self.FLAGS['SEND_T4']:
             self.server_response()
 
-        if self.FLAGS['END_OF_MSG']:
+        if self.FLAGS['END_OF_MSG'] or self.FLAGS['TIMEOUT']:
             self.disable_comunications()
             return False
         else:
@@ -125,37 +117,43 @@ class Server:
  
     def read_head(self):
         try:
-            head = self.com1.getData(self.head_size)[0]
+            head = self.com1.getData(self.head_size, self.timer2, hs=self.FLAGS['HS'])[0]
+            if head == 'R':
+                self.FLAGS['SEND_T4'] = True
+            elif head == 'T':
+                self.FLAGS['TIMEOUT'] = True
+            else:
+                self.msg_type = head[0].to_bytes(1, 'big')           # h0
+                self.sensor_id = head[1].to_bytes(1, 'big')          # h1
+                self.server_id = head[2].to_bytes(1, 'big')          # h2
+                self.pkgs_qty = head[3]                              # h3
+                self.pkg_id = head[4]                                # h4
+                if self.msg_type == b'\x01':
+                    self.FLAGS['HS'] = False
+                    self.msg_id = head[5].to_bytes(1, 'big')         # h5 (\x01)
+                    self.write_log('receb', msg_type=1)
+                elif self.msg_type == b'\x03':
+                    self.pl_size = head[5]                           # h5 (\x03)
+                    self.write_log('receb', msg_type=3)
+                self.resend_pkg_id = head[6].to_bytes(1, 'big')      # h6
+                self.last_pkg_id = head[7]                           # h7
 
-            self.msg_type = head[0].to_bytes(1, 'big')           # h0
-            self.sensor_id = head[1].to_bytes(1, 'big')          # h1
-            self.server_id = head[2].to_bytes(1, 'big')          # h2
-            self.pkgs_qty = head[3]                              # h3
-            self.pkg_id = head[4]                                # h4
-            if self.msg_type == b'\x01':
-                self.msg_id = head[5].to_bytes(1, 'big')         # h5 (\x01)
-            elif self.msg_type == b'\x03':
-                self.pl_size = head[5]                           # h5 (\x03)
-            self.resend_pkg_id = head[6].to_bytes(1, 'big')      # h6
-            self.last_pkg_id = head[7]                           # h7
-
-            # check id
-
-            if self.msg_type == b'\x01':
-                self.FLAGS['GOT_HEAD'] = True
-                self.status('got_hs')
-                self.pkg_counter = 1
-                self.last_pkg_id = 0
-                
-            
-            if self.msg_type == b'\x03':
-                if self.pkg_id == self.last_pkg_id + 1:
+                # check id
+    
+                if self.msg_type == b'\x01':
                     self.FLAGS['GOT_HEAD'] = True
-                    self.status('read_head_ok')
-                else:
-                    self.FLAGS['PKG_ERROR'] = True
-                    self.status('pkg_error')
-            
+                    self.status('got_hs')
+                    self.pkg_counter = 1
+                    self.last_pkg_id = 0
+                    
+                
+                if self.msg_type == b'\x03':
+                    if self.pkg_id == self.last_pkg_id + 1:
+                        self.FLAGS['GOT_HEAD'] = True
+                        self.status('read_head_ok')
+                    else:
+                        self.FLAGS['PKG_ERROR'] = True
+                        self.status('pkg_error')
             
 
         except Exception as erro:
@@ -167,12 +165,12 @@ class Server:
                 self.status('no_pl')
             
             elif self.FLAGS['PKG_ID_1'] and self.msg_type == b'\x03':
-                self.file_type = self.com1.getData(self.pl_size)[0].decode('ascii')
+                self.file_type = self.com1.getData(self.pl_size, self.timer2)[0].decode('ascii')
                 self.FLAGS['PKG_ID_1'] = False
                 self.status('got_filetype')
 
             elif self.msg_type == b'\x03':
-                self.payload += self.com1.getData(self.pl_size)[0]
+                self.payload += self.com1.getData(self.pl_size, self.timer2)[0]
                 self.status('got_pl')
                 
             self.FLAGS['GOT_PAYLOAD'] = True
@@ -182,7 +180,7 @@ class Server:
 
     def check_eop(self):
         try:
-            eop = self.com1.getData(self.eop_size)[0]
+            eop = self.com1.getData(self.eop_size, self.timer2)[0]
             if eop == self.EOP:
                 self.FLAGS['GOT_EOP'] = True
                 if self.pkg_counter > self.pkgs_qty:
@@ -205,7 +203,7 @@ class Server:
                 send_head = b''.join(head)
                 self.com1.sendData(send_head)
                 self.FLAGS['PKG_ERROR'] = False
-                self.timer1 = time.time()
+                self.write_log('envio', msg_type=6)
             
             elif self.FLAGS['TIMEOUT']:
                 self.com1.rx.clearBuffer()
@@ -213,6 +211,17 @@ class Server:
                 send_head = b''.join(head)
                 self.com1.sendData(send_head)
                 self.FLAGS['TIMEOUT'] = False
+                self.write_log('envio', msg_type=5)
+            
+            elif self.FLAGS['SEND_T4']:
+                self.com1.rx.clearBuffer()
+                head = [self.msg_type_dict['data'], self.sensor_id, self.server_id, int(self.pkgs_qty).to_bytes(1, 'big'), b'\x00', self.msg_id, int(self.last_pkg_id+1).to_bytes(1, 'big'), int(self.last_pkg_id).to_bytes(1, 'big'), b'\x00', b'\x00', self.EOP]
+                send_head = b''.join(head)
+                self.com1.sendData(send_head)
+                self.FLAGS['TIMEOUT'] = False
+                self.write_log('envio', msg_type=4)
+                self.timer1 = time.time()
+
 
             else:
                 if self.msg_type == b'\x01':
@@ -221,6 +230,7 @@ class Server:
                     self.com1.rx.clearBuffer()
                     self.com1.sendData(head_response)
                     self.status('sent_hs')
+                    self.write_log('envio', msg_type=1)
 
                 elif self.msg_type == b'\x03':
                     self.status('got_data')
@@ -230,6 +240,7 @@ class Server:
                     self.com1.sendData(dataOK_response)
                     self.status('sent_dataOK')
                     self.last_pkg_id = self.pkg_id
+                    self.write_log('envio', msg_type=3)
                 
                 self.pkg_counter += 1
 
@@ -241,14 +252,18 @@ class Server:
         with open("resources/server/" + file, "wb") as bin_file:
             bin_file.write(self.payload)
 
-    def write_log(self, type, msg_type, pkg_size, pkg_id, pkgs_quantity, CRC=b'\x00\x00'):
-        now = datetime.datetime.now(tz=-3)
-        if self.msg_type in [b'\x01', b'\x02', b'\x05']:
-            type = 'receb'
-            log = f'{now} / {type} / {self.file_type} / {self.pkgs_qty} / {self.pkg_id} / {CRC[0]} / {CRC[1]}'
-        else:
-            type = 'envio'
-            log = f'{now} / {type} / {self.file_type} / {self.pkgs_qty}'
+    def write_log(self, type, msg_type=0, CRC=b'\x00\x00'):
+        now = datetime.now(tz=timezone.utc)
+        print(self.msg_type)
+        if type == 'receb':
+            log = f'{now} / {type} / {msg_type} / {self.pl_size} / {self.pkg_id} / {CRC}\n'
+        elif type == 'envio':
+            log = f'{now} / {type} / {msg_type} / {self.pl_size}\n'
+
+        f =  open("server/logs/log.txt", "a")
+        f.write(log)
+        f.close()
+
 
 
 def main():

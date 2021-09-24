@@ -39,18 +39,6 @@ class enlace(object):
     def sendData(self, data):
         self.tx.sendBuffer(data)
         
-    def getData(self, size):
-        data = self.rx.getNData(size)
+    def getData(self, size, start=time.time(), hs=False):
+        data = self.rx.getNData(size, start, hs)
         return(data, len(data))
-
-    def getNData(self, size, start):
-        start_time = time.time()
-        while(self.getBufferLen() < size):
-            time.sleep(0.05)
-            if time.time() - start < 20:
-                runtime = time.time() - start_time
-                if runtime > 5:
-                    return 'RUNTIME'
-            else:
-                return 'TIME_OUT'
-        return(self.getBuffer(size))
