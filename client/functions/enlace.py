@@ -11,11 +11,11 @@
 import time
 
 # Interface Física
-from interfaceFisica import fisica
+from functions.interfaceFisica import fisica
 
 # enlace Tx e Rx
-from enlaceRx import RX
-from enlaceTx import TX
+from functions.enlaceRx import RX
+from functions.enlaceTx import TX
 
 class enlace(object):
     
@@ -39,6 +39,6 @@ class enlace(object):
     def sendData(self, data):
         self.tx.sendBuffer(data)
         
-    def getData(self, size):
-        data = self.rx.getNData(size)
+    def getData(self, size, start):
+        data = self.rx.getNData(size, start)
         return(data, len(data))
