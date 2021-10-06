@@ -1,20 +1,23 @@
 from datetime import datetime, timezone
 from tqdm import tqdm
 
+
 class Status:
     def __init__(self, VERBOSE):
         self.status_dict = {
-            'msg_read' : 'Mensagem encontrada com sucesso.',
-            'msg_conv' : 'Mensagem convertida em pacotes.',
-            'com_enable' : 'Comunicação Habilitada no Client!',
+            'msg_read': 'Mensagem encontrada com sucesso.',
+            'msg_conv': 'Mensagem convertida em pacotes.',
+            'com_enable': 'Comunicação Habilitada no Client!',
             'pkgs_encoded': 'Todos os pacotes foram montados.',
             'send_handshake': 'Enviando o Handshake...',
-            'received_handshake' : 'Handshake feito com SUCESSO!',
-            'resend_handshake' : 'Enviei o Handshake novamente :(',
-            'handshake_timeout' : 'Deu #TIMEOUT# no handshake :(',
-            'handshake_runtime' : '#RUNTIME# no handshake, enviando novamente :(',
-            'send_pkg' : 'Enviando o Pacote de id:',
-            'update_load_bar' : 'Pacote foi recebido! Update Bar.',
+            'received_handshake': 'Handshake feito com SUCESSO!',
+            'resend_handshake': 'Enviei o Handshake novamente :(',
+            'handshake_timeout': 'Deu #TIMEOUT# no handshake :(',
+            'handshake_runtime': '#RUNTIME# no handshake, enviando novamente :(',
+            'timeout': 'Deu #TIMEOUT# no envio do pacote :(',
+            'runtime': '#RUNTIME# no envio do pacote, enviando novamente :(',
+            'send_pkg': 'Enviando o Pacote de id:',
+            'update_load_bar': 'Pacote foi recebido! Update Bar.',
         }
         self.VERBOSE = VERBOSE
         self.logFile = open('client/logs/log.txt', 'a')
@@ -45,9 +48,12 @@ class Status:
         EXEMPLO: 29/09/2020 13:34:23.089 / envio / 3 / 128 / 1 / 23/ F23F
         """
         now = datetime.now(tz=timezone.utc)
-        logDATA = now.isoformat(' ') + ' / ' + str(type) + ' / ' + str(msgType) + ' / ' + str(totalBytes)
+        logDATA = now.isoformat(' ') + ' / ' + str(type) + \
+            ' / ' + str(msgType) + ' / ' + str(totalBytes)
         if msgType == 3:
-            logDATA = logDATA + ' / ' + str(sendPackNum) + ' / ' + str(total_pkgs) + ' / ' + str(CRC) + '\n'
+            logDATA = logDATA + ' / ' + \
+                str(sendPackNum) + ' / ' + \
+                str(total_pkgs) + ' / ' + str(CRC) + '\n'
             self.logFile.write(logDATA)
         else:
             logDATA = logDATA + '\n'
@@ -55,4 +61,3 @@ class Status:
 
     def logClose(self):
         self.logFile.close()
-

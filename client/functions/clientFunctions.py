@@ -1,6 +1,7 @@
-TIPO_MENSAGEM = {'handshake':b'\x01','handshake-response':b'\x02','data':b'\x03','data-ok':b'\x04','timeout':b'\x05','error':b'\x06'}
+from crccheck.crc import Crc16
+TIPO_MENSAGEM = {'handshake': b'\x01', 'handshake-response': b'\x02',
+                 'data': b'\x03', 'data-ok': b'\x04', 'timeout': b'\x05', 'error': b'\x06'}
 EOP = b'\x4C\x4F\x56\x55'
-
 
 
 def openMsg(fileName, Status):
@@ -9,22 +10,29 @@ def openMsg(fileName, Status):
         Status.status('msg_read')
         return bytearray(f)
 
+
 def construirPayloads(mensagem, Status, size=114):
     payloads = []
     payload = b''
     FLAG = size
     for byte in mensagem:
-        #print(FLAG)
+        # print(FLAG)
         if FLAG >= size:
             if payload != b'':
                 payloads.append(payload)
-                #print(payload)
+                # print(payload)
             FLAG = 0
-            payload = int(byte).to_bytes(1,'big')
+            payload = int(byte).to_bytes(1, 'big')
         else:
-            payload += int(byte).to_bytes(1,'big')
+            payload += int(byte).to_bytes(1, 'big')
             FLAG += 1
     if payload != b'':
         payloads.append(payload)
     Status.status('msg_conv')
     return payloads
+
+
+def CRC(data):
+    crc_result = Crc16.calc(data)
+    crc = crc_result.to_bytes(2, "big")
+    return crc

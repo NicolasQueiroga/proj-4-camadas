@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 #####################################################
-#Carareto
-#17/02/2018
+# Carareto
+# 17/02/2018
 ####################################################
 
 # Importa pacote de comunicação serial
@@ -15,17 +15,19 @@ import binascii
 #################################
 # Interface com a camada física #
 #################################
+
+
 class fisica(object):
     def __init__(self, name):
-        self.name        = name
-        self.port        = None
-        self.baudrate    = 115200
+        self.name = name
+        self.port = None
+        self.baudrate = 115200
         #self.baudrate    = 9600
-        self.bytesize    = serial.EIGHTBITS
-        self.parity      = serial.PARITY_NONE
-        self.stop        = serial.STOPBITS_ONE
-        self.timeout     = 0.1
-        self.rxRemain    = b""
+        self.bytesize = serial.EIGHTBITS
+        self.parity = serial.PARITY_NONE
+        self.stop = serial.STOPBITS_ONE
+        self.timeout = 0.1
+        self.rxRemain = b""
 
     def open(self):
         self.port = serial.Serial(self.name,
@@ -34,7 +36,6 @@ class fisica(object):
                                   self.parity,
                                   self.stop,
                                   self.timeout)
-
 
     def close(self):
         self.port.close()
@@ -78,7 +79,7 @@ class fisica(object):
         nValid = (len(rxBufferConcat)//2)*2
         rxBufferValid = rxBufferConcat[0:nValid]
         self.rxRemain = rxBufferConcat[nValid:]
-        try :
+        try:
             """ As vezes acontece erros na decodificacao
             fora do ambiente linux, isso tenta corrigir
             em parte esses erros. Melhorar futuramente."""
@@ -86,7 +87,7 @@ class fisica(object):
             rxBufferDecoded = self.decode(rxBufferValid)
             nRx = len(rxBuffer)
             return(rxBufferDecoded, nRx)
-        except :
-            print("[ERRO] interfaceFisica, read, decode. buffer : {}".format(rxBufferValid))
+        except:
+            print("[ERRO] interfaceFisica, read, decode. buffer : {}".format(
+                rxBufferValid))
             return(b"", 0)
-
