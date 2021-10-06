@@ -267,7 +267,7 @@ class Server:
         elif type == 'envio':
             log = f'{now} / {type} / {msg_type} / {14}\n'
 
-        f = open("server/logs/log.txt", "a")
+        f = open("logs/log.txt", "a")
         f.write(log)
         f.close()
 
